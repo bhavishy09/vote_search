@@ -48,43 +48,18 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentSearchResults = [];
   let selectedFile = null;
 
-  // Backend API URL Configuration
+  // Permanent Backend API URL Configuration
+  const PRODUCTION_BACKEND = "https://vote-search-api.onrender.com";
   const IS_LOCAL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   
   function getApiBase() {
     if (IS_LOCAL) return "";
-    const saved = localStorage.getItem("VOTER_API_BASE");
-    if (saved) return saved.replace(/\/+$/, "");
-    if (window.API_BASE) return window.API_BASE.replace(/\/+$/, "");
-    // Default fallback for Vercel deployment
-    return "";
+    return PRODUCTION_BACKEND;
   }
 
   function apiUrl(endpoint) {
     const base = getApiBase();
     return base ? `${base}${endpoint}` : endpoint;
-  }
-
-  function promptBackendConfig() {
-    const current = localStorage.getItem("VOTER_API_BASE") || "";
-    const input = prompt(
-      "Backend API Configuration:\n\nEnter your Render backend URL (e.g., https://vote-search.onrender.com) or leave blank to use the default proxy:",
-      current
-    );
-    if (input !== null) {
-      const trimmed = input.trim();
-      if (trimmed) {
-        let clean = trimmed;
-        if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
-          clean = "https://" + clean;
-        }
-        localStorage.setItem("VOTER_API_BASE", clean);
-      } else {
-        localStorage.removeItem("VOTER_API_BASE");
-      }
-      statsText.textContent = "Connecting to backend...";
-      fetchStats();
-    }
   }
 
   // Initialize
@@ -299,15 +274,14 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Fetch Database Stats
+  let statsRetryCount = 0;
   async function fetchStats() {
     try {
       const resp = await fetch(apiUrl("/api/stats"));
       if (resp.ok) {
         const stats = await resp.json();
         statsText.textContent = `${stats.total_voters.toLocaleString()} Voters • ${stats.parts.length} Part Lists`;
-        statsBadge.title = `Backend Connected (${getApiBase() || "Default Proxy"}) - Click to change URL`;
-        statsBadge.style.cursor = "pointer";
-        statsBadge.onclick = promptBackendConfig;
+        statsBadge.title = `Connected to ${getApiBase() || "Local Server"}`;
         
         // Populate parts dropdown
         const currentVal = partSelect.value;
@@ -319,15 +293,19 @@ document.addEventListener("DOMContentLoaded", () => {
           partSelect.appendChild(opt);
         });
         partSelect.value = currentVal || "all";
+        statsRetryCount = 0;
       } else {
         throw new Error(`HTTP ${resp.status}`);
       }
     } catch (e) {
-      console.warn("Backend connection error:", e);
-      statsText.innerHTML = `⚠️ Backend Offline <span style="text-decoration:underline;cursor:pointer;font-size:11px;margin-left:4px;">(Connect)</span>`;
-      statsBadge.style.cursor = "pointer";
-      statsBadge.title = "Click to enter your Render backend URL";
-      statsBadge.onclick = promptBackendConfig;
+      console.warn("Backend connecting...", e);
+      if (statsRetryCount < 6) {
+        statsRetryCount++;
+        statsText.textContent = "Connecting to server...";
+        setTimeout(fetchStats, 3000);
+      } else {
+        statsText.textContent = "Server Sleeping / Offline";
+      }
     }
   }
 

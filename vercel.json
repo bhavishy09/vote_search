@@ -15,7 +15,7 @@
     },
     {
       "source": "/api/:match*",
-      "destination": "https://vote-search.onrender.com/api/:match*"
+      "destination": "https://vote-search-api.onrender.com/api/:match*"
     },
     {
       "source": "/",
