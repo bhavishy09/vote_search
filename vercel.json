@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/style.css",
+      "destination": "/static/style.css"
+    },
+    {
+      "source": "/app.js",
+      "destination": "/static/app.js"
+    },
+    {
+      "source": "/static/:match*",
+      "destination": "/static/:match*"
+    },
+    {
+      "source": "/api/:match*",
+      "destination": "https://vote-search.onrender.com/api/:match*"
+    },
+    {
+      "source": "/",
+      "destination": "/static/index.html"
+    }
+  ]
+}

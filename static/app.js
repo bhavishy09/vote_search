@@ -48,6 +48,45 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentSearchResults = [];
   let selectedFile = null;
 
+  // Backend API URL Configuration
+  const IS_LOCAL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  
+  function getApiBase() {
+    if (IS_LOCAL) return "";
+    const saved = localStorage.getItem("VOTER_API_BASE");
+    if (saved) return saved.replace(/\/+$/, "");
+    if (window.API_BASE) return window.API_BASE.replace(/\/+$/, "");
+    // Default fallback for Vercel deployment
+    return "";
+  }
+
+  function apiUrl(endpoint) {
+    const base = getApiBase();
+    return base ? `${base}${endpoint}` : endpoint;
+  }
+
+  function promptBackendConfig() {
+    const current = localStorage.getItem("VOTER_API_BASE") || "";
+    const input = prompt(
+      "Backend API Configuration:\n\nEnter your Render backend URL (e.g., https://vote-search.onrender.com) or leave blank to use the default proxy:",
+      current
+    );
+    if (input !== null) {
+      const trimmed = input.trim();
+      if (trimmed) {
+        let clean = trimmed;
+        if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
+          clean = "https://" + clean;
+        }
+        localStorage.setItem("VOTER_API_BASE", clean);
+      } else {
+        localStorage.removeItem("VOTER_API_BASE");
+      }
+      statsText.textContent = "Connecting to backend...";
+      fetchStats();
+    }
+  }
+
   // Initialize
   fetchStats();
 
@@ -123,7 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (part && part !== "all") params.append("bhag", part);
 
     try {
-      const resp = await fetch(`/api/search?${params.toString()}`);
+      const resp = await fetch(apiUrl(`/api/search?${params.toString()}`));
       if (!resp.ok) {
         throw new Error(`Search error: ${resp.statusText}`);
       }
@@ -262,10 +301,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // Fetch Database Stats
   async function fetchStats() {
     try {
-      const resp = await fetch("/api/stats");
+      const resp = await fetch(apiUrl("/api/stats"));
       if (resp.ok) {
         const stats = await resp.json();
         statsText.textContent = `${stats.total_voters.toLocaleString()} Voters • ${stats.parts.length} Part Lists`;
+        statsBadge.title = `Backend Connected (${getApiBase() || "Default Proxy"}) - Click to change URL`;
+        statsBadge.style.cursor = "pointer";
+        statsBadge.onclick = promptBackendConfig;
         
         // Populate parts dropdown
         const currentVal = partSelect.value;
@@ -277,9 +319,15 @@ document.addEventListener("DOMContentLoaded", () => {
           partSelect.appendChild(opt);
         });
         partSelect.value = currentVal || "all";
+      } else {
+        throw new Error(`HTTP ${resp.status}`);
       }
     } catch (e) {
-      statsText.textContent = "Offline";
+      console.warn("Backend connection error:", e);
+      statsText.innerHTML = `⚠️ Backend Offline <span style="text-decoration:underline;cursor:pointer;font-size:11px;margin-left:4px;">(Connect)</span>`;
+      statsBadge.style.cursor = "pointer";
+      statsBadge.title = "Click to enter your Render backend URL";
+      statsBadge.onclick = promptBackendConfig;
     }
   }
 
@@ -382,7 +430,7 @@ document.addEventListener("DOMContentLoaded", () => {
     formData.append("file", selectedFile);
 
     try {
-      const resp = await fetch("/api/upload", {
+      const resp = await fetch(apiUrl("/api/upload"), {
         method: "POST",
         body: formData,
       });

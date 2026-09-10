@@ -49,6 +49,23 @@ async def serve_index():
     return FileResponse(index_path)
 
 
+@app.get("/style.css")
+async def serve_css():
+    css_path = os.path.join(STATIC_DIR, "style.css")
+    return FileResponse(css_path, media_type="text/css")
+
+
+@app.get("/app.js")
+async def serve_js():
+    js_path = os.path.join(STATIC_DIR, "app.js")
+    return FileResponse(js_path, media_type="application/javascript")
+
+
+@app.get("/favicon.ico")
+async def serve_favicon():
+    return HTMLResponse(status_code=204)
+
+
 @app.get("/api/search")
 async def api_search(
     name: str = Query(..., description="Voter Name (English or Hindi)"),
